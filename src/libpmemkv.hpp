@@ -81,7 +81,9 @@ class string_view {
 public:
 	string_view() noexcept;
 	string_view(const char *data, size_t size);
-	string_view(const std::string &s);
+
+	template <typename Allocator>
+	string_view(const std::basic_string<char, std::char_traits<char>, Allocator> &s);
 	string_view(const char *data);
 
 	string_view(const string_view &rhs) noexcept = default;
@@ -90,7 +92,7 @@ public:
 	const char *data() const noexcept;
 	std::size_t size() const noexcept;
 
-	int compare(const string_view &other) noexcept;
+	int compare(const string_view &other) const noexcept;
 
 private:
 	const char *_data;
@@ -191,8 +193,8 @@ public:
 			const std::size_t number = 1) noexcept;
 	template <typename T>
 	status put_object(
-		const std::string &key, T *value,
-		void (*deleter)(void *) = [](T *value) { delete value; }) noexcept;
+			const std::string &key, T *value,
+			void (*deleter)(void *) = [](T *value) { delete value; }) noexcept;
 	status put_uint64(const std::string &key, std::uint64_t value) noexcept;
 	status put_int64(const std::string &key, std::int64_t value) noexcept;
 	status put_string(const std::string &key, const std::string &value) noexcept;
@@ -580,11 +582,14 @@ inline string_view::string_view(const char *data, size_t size) : _data(data), _s
 }
 
 /**
- * Constructor initialized by the string *s*.
+ * Constructor initialized by the basic_string *s*.
  *
- * @param[in] s reference to the string to initialize with
- */
-inline string_view::string_view(const std::string &s) : _data(s.c_str()), _size(s.size())
+ * @param[in] s reference to the basic_string to initialize with
+ */      
+template <typename Allocator>
+inline string_view::string_view(
+	const std::basic_string<char, std::char_traits<char>, Allocator> &s)
+    : _data(s.c_str()), _size(s.size())
 {
 }
 
@@ -629,7 +634,7 @@ inline std::size_t string_view::size() const noexcept
  *			positive value if this is lexicographically greater than other,
  *			negative value if this is lexicographically less than other.
  */
-inline int string_view::compare(const string_view &other) noexcept
+inline int string_view::compare(const string_view &other) const noexcept
 {
 	int ret = std::char_traits<char>::compare(data(), other.data(),
 						  std::min(size(), other.size()));
@@ -640,6 +645,11 @@ inline int string_view::compare(const string_view &other) noexcept
 	if (size() > other.size())
 		return 1;
 	return 0;
+}
+
+inline bool operator<(const string_view &lhs, const string_view &rhs) noexcept
+{
+	return lhs.compare(rhs) == -1;
 }
 #endif
 

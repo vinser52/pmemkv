@@ -244,10 +244,18 @@ status vsmap::put(string_view key, string_view value)
 status vsmap::remove(string_view key)
 {
 	LOG("remove key=" << std::string(key.data(), key.size()));
-
+#if __cplusplus < 201402L
 	// XXX - do not create temporary string
 	size_t erased =
 		pmem_kv_container.erase(key_type(key.data(), key.size(), kv_allocator));
+#else
+	auto it = pmem_kv_container.find(key);
+	size_t erased = 0;
+	if (it != pmem_kv_container.end()) {
+		erased = 1;
+		pmem_kv_container.erase(it);
+	}
+#endif
 	return (erased == 1) ? status::OK : status::NOT_FOUND;
 }
 

@@ -76,6 +76,15 @@ public:
 	status remove(string_view key) final;
 
 private:
+	struct hetero_less {
+		using is_transparent = void;
+		template <typename Type1, typename Type2>
+		bool operator()(const Type1 &lhs, const Type2 &rhs) const
+		{
+			return lhs < rhs;
+		}
+	};
+
 	using storage_type = std::basic_string<char, std::char_traits<char>,
 					       memkind_ns::allocator<char>>;
 
@@ -83,7 +92,7 @@ private:
 	using mapped_type = storage_type;
 	using map_allocator_type =
 		memkind_ns::allocator<std::pair<key_type, mapped_type>>;
-	using map_type = std::map<key_type, mapped_type, std::less<key_type>,
+	using map_type = std::map<key_type, mapped_type, hetero_less,
 				  std::scoped_allocator_adaptor<map_allocator_type>>;
 
 	map_allocator_type kv_allocator;
