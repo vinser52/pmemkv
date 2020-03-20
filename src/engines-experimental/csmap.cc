@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019, Intel Corporation
+ * Copyright 2017-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -89,7 +89,7 @@ status csmap::exists(string_view key)
 	 * We take read lock for thread-safe methods (like contains) to synchronize with
 	 * unsafe_erase() which sis not thread-safe.
 	 */
-	lock_type lock(mtx, false);
+	std::shared_lock<mutex_type> lock(mtx);
 	return container->contains(key) ? status::OK : status::NOT_FOUND;
 }
 
@@ -102,10 +102,10 @@ status csmap::get(string_view key, get_v_callback *callback, void *arg)
 	 * We take read lock for thread-safe methods (like find) to synchronize with
 	 * unsafe_erase() which sis not thread-safe.
 	 */
-	lock_type lock(mtx, false);
+	std::shared_lock<mutex_type> lock(mtx);
 	auto it = container->find(key);
 	if (it != container->end()) {
-		value_lock_type lock(it->second.mtx, false); // read lock
+		std::shared_lock<decltype(it->second.mtx)> lock(it->second.mtx);
 		callback(it->second.val.c_str(), it->second.val.size(), arg);
 		return status::OK;
 	}
@@ -124,13 +124,13 @@ status csmap::put(string_view key, string_view value)
 	 * We take read lock for thread-safe methods (like emplace) to synchronize with
 	 * unsafe_erase() which sis not thread-safe.
 	 */
-	lock_type lock(mtx, false);
+	std::shared_lock<mutex_type> lock(mtx);
 
-    auto result = container->try_emplace(key, value);
+	auto result = container->try_emplace(key, value);
 
 	if (result.second == false) {
 		auto &it = result.first;
-		value_lock_type lock(it->second.mtx, true); // write lock
+		std::unique_lock<decltype(it->second.mtx)> lock(it->second.mtx);
 		pmem::obj::transaction::manual tx(pmpool);
 		it->second.val.assign(value.data(), value.size());
 		pmem::obj::transaction::commit();
@@ -143,7 +143,7 @@ status csmap::remove(string_view key)
 {
 	LOG("remove key=" << std::string(key.data(), key.size()));
 	check_outside_tx();
-	lock_type lock(mtx, true);
+	std::unique_lock<mutex_type> lock(mtx);
 	return container->unsafe_erase(key) > 0 ? status::OK : status::NOT_FOUND;
 }
 

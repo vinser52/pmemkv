@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019, Intel Corporation
+ * Copyright 2017-2020, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,8 @@
 #include <libpmemobj++/persistent_ptr.hpp>
 #include <libpmemobj++/shared_mutex.hpp>
 
-#include <tbb/spin_rw_mutex.h>
+#include <mutex>
+#include <shared_mutex>
 
 namespace pmem
 {
@@ -72,8 +73,6 @@ public:
 	}
 };
 
-using node_mutex_type = tbb::spin_rw_mutex;
-
 struct key_type : public pmem::obj::string {
 	key_type() = default;
 	key_type(const key_type &) = default;
@@ -102,7 +101,7 @@ struct mapped_type {
 	{
 	}
 
-	pmem::obj::experimental::v<node_mutex_type> mtx;
+	pmem::obj::shared_mutex mtx;
 	pmem::obj::string val;
 };
 
@@ -134,9 +133,8 @@ public:
 	status remove(string_view key) final;
 
 private:
-	using value_lock_type = internal::csmap::node_mutex_type::scoped_lock;
-	using mutex_type = tbb::spin_rw_mutex;
-	using lock_type = typename tbb::spin_rw_mutex::scoped_lock;
+	using node_mutex_type = pmem::obj::shared_mutex;
+	using mutex_type = std::shared_timed_mutex;
 	using container_type = internal::csmap::map_t;
 
 	void Recover();
